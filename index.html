@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>마구마구 떨어지는 운석 피하기 게임</title>
+    <title>UFO 피하기 게임</title>
     <style>
         body {
             margin: 0;
@@ -95,8 +95,8 @@
             <h2 style="color: #00ff88; margin: 0 0 15px 0;">UFO 피하기 게임</h2>
             <p>스페이스바를 눌러 게임 시작!</p>
             <p style="font-size: 12px; color: #aaa;">
-                PC: 좌우 화살표 키로 이동<br>
-                모바일: 화면 터치로 이동
+                PC: 좌우 화살표 키로 이동, 스페이스바로 미사일 발사<br>
+                모바일: 화면 터치로 이동, 탭으로 미사일 발사
             </p>
         </div>
         <div id="gameOver">
@@ -133,6 +133,10 @@
         let meteorSpeed = 2;
         let meteorSpawnRate = 0.02;
 
+        // 미사일 배열
+        let missiles = [];
+        let missileSpeed = 8;
+
         // UFO 도트맵 (반원형)
         const ufoPixelMap = [
             "    ████████████    ",
@@ -157,6 +161,14 @@
             "████████",
             "████████",
             "  ████  "
+        ];
+
+        // 미사일 도트맵
+        const missilePixelMap = [
+            "██",
+            "██",
+            "██",
+            "██"
         ];
 
         // 픽셀 그리기 함수
@@ -192,6 +204,16 @@
             }
         }
 
+        // 미사일 생성
+        function createMissile() {
+            missiles.push({
+                x: ufo.x - 1,
+                y: ufo.y - 15,
+                width: 4,
+                height: 8
+            });
+        }
+
         // 운석 생성
         function createMeteor() {
             meteors.push({
@@ -199,6 +221,17 @@
                 y: -16,
                 width: 16,
                 height: 16
+            });
+        }
+
+        // 미사일 그리기
+        function drawMissiles() {
+            missiles.forEach(missile => {
+                drawPixelArt(missile.x, missile.y, missilePixelMap, '#00ff88', 2);
+                
+                // 미사일 발사 효과
+                ctx.fillStyle = '#88ffaa';
+                ctx.fillRect(missile.x, missile.y + 8, 4, 2);
             });
         }
 
@@ -218,6 +251,23 @@
                     );
                 }
             });
+        }
+
+        // 폭발 효과 생성
+        function createExplosion(x, y) {
+            // 폭발 파티클 효과
+            for (let i = 0; i < 8; i++) {
+                const angle = (i / 8) * Math.PI * 2;
+                const speed = 2 + Math.random() * 3;
+                setTimeout(() => {
+                    ctx.fillStyle = '#ffaa00';
+                    ctx.fillRect(
+                        x + Math.cos(angle) * speed * 5,
+                        y + Math.sin(angle) * speed * 5,
+                        3, 3
+                    );
+                }, i * 50);
+            }
         }
 
         // 충돌 감지
@@ -261,6 +311,29 @@
                 meteor.y += meteorSpeed;
             });
 
+            // 미사일 이동
+            missiles.forEach(missile => {
+                missile.y -= missileSpeed;
+            });
+
+            // 화면 밖 미사일 제거
+            missiles = missiles.filter(missile => missile.y > -10);
+
+            // 미사일과 운석 충돌 검사
+            for (let i = missiles.length - 1; i >= 0; i--) {
+                for (let j = meteors.length - 1; j >= 0; j--) {
+                    if (checkCollision(missiles[i], meteors[j])) {
+                        // 폭발 효과
+                        createExplosion(meteors[j].x + 8, meteors[j].y + 8);
+                        
+                        // 미사일과 운석 제거
+                        missiles.splice(i, 1);
+                        meteors.splice(j, 1);
+                        break;
+                    }
+                }
+            }
+
             // 화면 밖 운석 제거
             meteors = meteors.filter(meteor => meteor.y < canvas.height);
 
@@ -286,6 +359,9 @@
                 // UFO 그리기
                 drawUFO();
 
+                // 미사일 그리기
+                drawMissiles();
+
                 // 운석 그리기
                 drawMeteors();
             }
@@ -303,6 +379,7 @@
             gameState = 'playing';
             gameStartTime = Date.now();
             meteors = [];
+            missiles = [];
             ufo.x = canvas.width / 2;
             startMessageDiv.style.display = 'none';
             gameOverDiv.style.display = 'none';
@@ -323,7 +400,11 @@
             
             if (e.code === 'Space') {
                 e.preventDefault();
-                restartGame();
+                if (gameState === 'playing') {
+                    createMissile();
+                } else if (gameState === 'start' || gameState === 'gameOver') {
+                    restartGame();
+                }
             }
         });
 
